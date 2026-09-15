@@ -69,7 +69,7 @@ export default function CreatePurchaseClient({
       const selectedProduct = initialProducts.find(p => p.name === value)
       if (selectedProduct) {
         newItems[index].productId = selectedProduct.id
-        newItems[index].price = selectedProduct.costPrice || selectedProduct.price // use costPrice if available
+        newItems[index].price = (selectedProduct as any).costPrice || selectedProduct.price // use costPrice if available
       } else {
         newItems[index].productId = ''
       }
@@ -239,7 +239,7 @@ export default function CreatePurchaseClient({
                           )}
                           <div className={styles.dropdownInfo}>
                             <span className={styles.dropdownName}>{product.name}</span>
-                            <span className={styles.dropdownPrice}>{formatCurrencyBoth(product.costPrice || product.price)}</span>
+                            <span className={styles.dropdownPrice}>{formatCurrencyBoth((product as any).costPrice || product.price)}</span>
                           </div>
                         </div>
                       ))}
