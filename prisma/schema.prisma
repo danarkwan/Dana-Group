@@ -1,0 +1,142 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id            String    @id @default(cuid())
+  name          String?
+  email         String?   @unique
+  emailVerified DateTime?
+  password      String?
+  image         String?
+  role             String    @default("EMPLOYEE") // ADMINISTRATOR, ACCOUNTANT, CASHIER, EMPLOYEE
+  resetToken       String?
+  resetTokenExpiry DateTime?
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+}
+
+model Product {
+  id          String   @id @default(cuid())
+  name        String
+  description String?
+  image       String?
+  price       Float
+  stock       Int      @default(0)
+  category    String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  invoiceItems InvoiceItem[]
+  purchaseItems PurchaseItem[]
+}
+
+model Customer {
+  id        String    @id @default(cuid())
+  name      String
+  email     String?
+  phone     String?
+  address   String?
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  
+  invoices  Invoice[]
+}
+
+model Invoice {
+  id               String   @id @default(cuid())
+  invoiceNumber    String   @unique
+  customerId       String?
+  customer         Customer? @relation(fields: [customerId], references: [id])
+  customerName     String?
+  date             DateTime @default(now())
+  dueDate          DateTime
+  subtotal         Float
+  tax              Float    @default(0)
+  discount         Float    @default(0)
+  total            Float
+  paidAmount       Float    @default(0)
+  remainingBalance Float
+  paymentMethod    String?
+  notes            String?
+  terms            String?
+  status           String   @default("PENDING") // PENDING, PAID, PARTIAL, OVERDUE
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  items InvoiceItem[]
+}
+
+model InvoiceItem {
+  id        String   @id @default(cuid())
+  invoiceId String
+  invoice   Invoice  @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+  productId   String?
+  product     Product?  @relation(fields: [productId], references: [id])
+  description String?
+  quantity  Int
+  price     Float
+}
+
+model Transaction {
+  id          String   @id @default(cuid())
+  type        String   // INCOME, EXPENSE
+  amount      Float
+  description String?
+  date        DateTime @default(now())
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model Supplier {
+  id        String    @id @default(cuid())
+  name      String
+  email     String?
+  phone     String?
+  address   String?
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  
+  purchases Purchase[]
+}
+
+model Purchase {
+  id               String   @id @default(cuid())
+  purchaseNumber   String?  @unique
+  supplierId       String?
+  supplier         Supplier? @relation(fields: [supplierId], references: [id])
+  date             DateTime @default(now())
+  dueDate          DateTime?
+  subtotal         Float    @default(0)
+  tax              Float    @default(0)
+  discount         Float    @default(0)
+  total            Float
+  paidAmount       Float    @default(0)
+  remainingBalance Float    @default(0)
+  paymentMethod    String?
+  notes            String?
+  status           String   @default("PENDING") // PENDING, PAID, PARTIAL, OVERDUE
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  items PurchaseItem[]
+}
+
+model PurchaseItem {
+  id         String   @id @default(cuid())
+  purchaseId String
+  purchase   Purchase @relation(fields: [purchaseId], references: [id], onDelete: Cascade)
+  productId  String?
+  product    Product? @relation(fields: [productId], references: [id])
+  description String?
+  quantity   Int
+  price      Float
+}
