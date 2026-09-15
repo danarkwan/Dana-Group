@@ -4,9 +4,12 @@
   "private": true,
   "scripts": {
     "dev": "next dev -H 0.0.0.0",
-    "build": "prisma generate && prisma db push --accept-data-loss && next build",
+    "build": "prisma generate && prisma db push --accept-data-loss && prisma db seed && next build",
     "start": "next start",
     "lint": "eslint"
+  },
+  "prisma": {
+    "seed": "ts-node --compiler-options {\\\"module\\\":\\\"CommonJS\\\"} prisma/seed.ts"
   },
   "dependencies": {
     "@prisma/client": "^5.10.0",
@@ -31,6 +34,7 @@
     "eslint": "^9",
     "eslint-config-next": "16.3.5",
     "prisma": "^5.10.0",
+    "ts-node": "^10.9.2",
     "typescript": "^5"
   }
 }
