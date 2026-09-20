@@ -10,13 +10,7 @@ export async function getPayrolls() {
   
   return prisma.payroll.findMany({
     include: {
-      employee: {
-        select: {
-          fullName: true,
-          employeeId: true,
-          department: true,
-        }
-      }
+      employee: true
     },
     orderBy: {
       date: 'desc'
