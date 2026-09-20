@@ -58,7 +58,10 @@
 
 @media (min-width: 1024px) {
   .chartsGrid {
-    grid-template-columns: 2fr 1fr;
+    grid-template-columns: 1fr 1fr;
+  }
+  .fullWidth {
+    grid-column: 1 / -1;
   }
 }
 

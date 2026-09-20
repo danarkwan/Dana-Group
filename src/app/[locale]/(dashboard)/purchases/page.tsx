@@ -1,12 +1,17 @@
+import { redirect } from 'next/navigation';
+import { hasAccess } from '@/lib/permissions';
+import { authOptions } from '@/lib/auth';
+import { getServerSession } from 'next-auth/next';
 import { getTranslations } from 'next-intl/server'
-import { PrismaClient } from '@prisma/client'
+import { prisma } from '@/lib/prisma';
 import Link from 'next/link'
 import { ShoppingBag, CreditCard, Clock, AlertCircle, Plus } from 'lucide-react'
 import { formatCurrencyBoth } from '@/lib/formatters'
 import styles from './purchases.module.css'
 import PurchaseRowActions from './PurchaseRowActions'
+import Pagination from '@/components/ui/Pagination'
+import PurchasesFilter from './PurchasesFilter'
 
-const prisma = new PrismaClient()
 
 export async function generateMetadata({ params }: { params: Promise<{ locale: string }> }) {
   const { locale } = await params
@@ -14,25 +19,66 @@ export async function generateMetadata({ params }: { params: Promise<{ locale: s
   return { title: `${t('title')} | Dana Group` }
 }
 
-export default async function PurchasesPage({ params }: { params: Promise<{ locale: string }> }) {
-  const { locale } = await params
-  const purchases = await prisma.purchase.findMany({
-    include: { supplier: true },
-    orderBy: { createdAt: 'desc' }
-  })
-  
-  const total = purchases.length
-  const paid = purchases.filter(p => p.status === 'PAID').length
-  const unpaid = purchases.filter(p => p.status === 'PENDING').length
-  
-  const today = new Date()
-  const overdue = purchases.filter(p => 
-    p.status === 'OVERDUE' || (p.status === 'PENDING' && p.dueDate && p.dueDate < today)
-  ).length
-  const partial = purchases.filter(p => p.status === 'PARTIAL').length
+export default async function PurchasesPage({ 
+  params,
+  searchParams
+}: { 
+  params: Promise<{ locale: string }>,
+  searchParams: { page?: string, query?: string, status?: string }
+}) {
+  const session = await getServerSession(authOptions);
+  const { locale } = await params;
+  if (!session || !hasAccess(session.user, 'inventory')) {
+    redirect(`/${locale}/auth/signin`);
+  }
 
-  const totalValue = purchases.reduce((sum, p) => sum + p.total, 0)
-  const outstandingValue = purchases.reduce((sum, p) => sum + p.remainingBalance, 0)
+  const page = Number(searchParams.page) || 1;
+  const take = 20;
+  const skip = (page - 1) * take;
+
+  const where: any = {};
+  if (searchParams.query) {
+    where.OR = [
+      { purchaseNumber: { contains: searchParams.query, mode: 'insensitive' } },
+      { supplier: { name: { contains: searchParams.query, mode: 'insensitive' } } }
+    ];
+  }
+  if (searchParams.status && searchParams.status !== 'ALL') {
+    where.status = searchParams.status;
+  }
+
+  const [purchases, totalCount, statusCounts, sumResult] = await Promise.all([
+    prisma.purchase.findMany({
+      where,
+      include: { supplier: true },
+      orderBy: { createdAt: 'desc' },
+      skip,
+      take
+    }),
+    prisma.purchase.count({ where }),
+    prisma.purchase.groupBy({
+      by: ['status'],
+      where,
+      _count: true
+    }),
+    prisma.purchase.aggregate({
+      where,
+      _sum: { total: true, remainingBalance: true }
+    })
+  ]);
+
+  const totalPages = Math.ceil(totalCount / take);
+  
+  let paid = 0, unpaid = 0, overdue = 0, partial = 0;
+  statusCounts.forEach(s => {
+    if (s.status === 'PAID') paid = s._count;
+    if (s.status === 'PENDING') unpaid = s._count;
+    if (s.status === 'OVERDUE') overdue = s._count;
+    if (s.status === 'PARTIAL') partial = s._count;
+  });
+
+  const totalValue = sumResult._sum.total || 0;
+  const outstandingValue = sumResult._sum.remainingBalance || 0;
 
   return (
     <div className={styles.container}>
@@ -52,7 +98,7 @@ export default async function PurchasesPage({ params }: { params: Promise<{ loca
       <div className={styles.statsGrid}>
         <SummaryCard 
           title="Purchases.total" 
-          value={total} 
+          value={totalCount} 
           subtitle={formatCurrencyBoth(totalValue)}
           icon={<ShoppingBag size={24} color="var(--color-primary)" />} 
         />
@@ -75,6 +121,8 @@ export default async function PurchasesPage({ params }: { params: Promise<{ loca
           icon={<AlertCircle size={24} color="var(--color-danger)" />} 
         />
       </div>
+
+      <PurchasesFilter />
 
       <div className={`card ${styles.tableContainer}`}>
         <table className={styles.table}>
@@ -125,6 +173,8 @@ export default async function PurchasesPage({ params }: { params: Promise<{ loca
           </tbody>
         </table>
       </div>
+
+      <Pagination totalPages={totalPages} />
     </div>
   )
 }

@@ -2,9 +2,33 @@ import { getTranslations } from 'next-intl/server';
 import { getSuppliers } from '@/lib/actions/suppliers';
 import SuppliersClient from './SuppliersClient';
 
-export default async function SuppliersPage() {
+import { redirect } from 'next/navigation';
+import { getServerSession } from 'next-auth/next';
+import { authOptions } from '@/lib/auth';
+import { hasAccess } from '@/lib/permissions';
+import Pagination from '@/components/ui/Pagination';
+import SuppliersFilter from './SuppliersFilter';
+
+export default async function SuppliersPage({ 
+  params,
+  searchParams
+}: { 
+  params: Promise<{ locale: string }>,
+  searchParams: { page?: string, query?: string }
+}) {
+  const session = await getServerSession(authOptions);
+  if (!session || !hasAccess(session.user, 'suppliers')) {
+    redirect(`/en/auth/signin`);
+  }
+
+  const page = Number(searchParams.page) || 1;
+  const take = 20;
+  const skip = (page - 1) * take;
+
   const t = await getTranslations('Suppliers');
-  const initialSuppliers = await getSuppliers();
+  const { suppliers: initialSuppliers, totalCount } = await getSuppliers(searchParams.query, skip, take);
+
+  const totalPages = Math.ceil(totalCount / take);
 
   const translations = {
     title: t('title'),
@@ -23,9 +47,13 @@ export default async function SuppliersPage() {
   };
 
   return (
-    <SuppliersClient 
-      initialSuppliers={initialSuppliers} 
-      translations={translations} 
-    />
+    <>
+      <SuppliersFilter />
+      <SuppliersClient 
+        initialSuppliers={initialSuppliers} 
+        translations={translations} 
+      />
+      <Pagination totalPages={totalPages} />
+    </>
   );
 }

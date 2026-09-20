@@ -9,9 +9,10 @@ interface ProductModalProps {
   isOpen: boolean
   onClose: () => void
   product?: any // To populate form when editing
+  suppliers?: { id: string, name: string }[]
 }
 
-export default function ProductModal({ isOpen, onClose, product }: ProductModalProps) {
+export default function ProductModal({ isOpen, onClose, product, suppliers = [] }: ProductModalProps) {
   const t = useTranslations('Products')
   const [loading, setLoading] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
@@ -80,8 +81,19 @@ export default function ProductModal({ isOpen, onClose, product }: ProductModalP
 
           <div style={{ display: 'flex', gap: '1rem', marginBottom: '1rem' }}>
             <div className="formGroup" style={{ flex: 1, marginBottom: 0 }}>
-              <label className="label">{t('price')}</label>
+              <label className="label">{t('sellingPrice')}</label>
               <input type="number" name="price" className="input" step="0.01" required defaultValue={product?.price || ''} />
+            </div>
+            <div className="formGroup" style={{ flex: 1, marginBottom: 0 }}>
+              <label className="label">{t('purchasePrice')}</label>
+              <input type="number" name="purchasePrice" className="input" step="0.01" required defaultValue={product?.purchasePrice || ''} />
+            </div>
+          </div>
+          
+          <div style={{ display: 'flex', gap: '1rem', marginBottom: '1rem' }}>
+            <div className="formGroup" style={{ flex: 1, marginBottom: 0 }}>
+              <label className="label">{t('sku')}</label>
+              <input type="text" name="sku" className="input" defaultValue={product?.sku || ''} />
             </div>
             <div className="formGroup" style={{ flex: 1, marginBottom: 0 }}>
               <label className="label">{t('category')}</label>
@@ -89,9 +101,29 @@ export default function ProductModal({ isOpen, onClose, product }: ProductModalP
             </div>
           </div>
           
+          <div style={{ display: 'flex', gap: '1rem', marginBottom: '1rem' }}>
+            <div className="formGroup" style={{ flex: 1, marginBottom: 0 }}>
+              <label className="label">{t('stock')}</label>
+              <input type="number" name="stock" className="input" min="0" required defaultValue={product?.stock || 0} />
+            </div>
+            <div className="formGroup" style={{ flex: 1, marginBottom: 0 }}>
+              <label className="label">{t('minStock')}</label>
+              <input type="number" name="minStock" className="input" min="0" required defaultValue={product?.minStock || 0} />
+            </div>
+            <div className="formGroup" style={{ flex: 1, marginBottom: 0 }}>
+              <label className="label">{t('unit')}</label>
+              <input type="text" name="unit" className="input" required defaultValue={product?.unit || 'pcs'} />
+            </div>
+          </div>
+
           <div className="formGroup">
-            <label className="label">عدد (Stock)</label>
-            <input type="number" name="stock" className="input" min="0" required defaultValue={product?.stock || 0} />
+            <label className="label">{t('supplier')}</label>
+            <select name="supplierId" className="input" defaultValue={product?.supplierId || ''}>
+              <option value="">-- Select Supplier --</option>
+              {suppliers.map(s => (
+                <option key={s.id} value={s.id}>{s.name}</option>
+              ))}
+            </select>
           </div>
 
           <div className="formGroup">

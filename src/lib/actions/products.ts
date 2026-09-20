@@ -1,31 +1,46 @@
-'use server'
+'use server';
+import { verifyServerActionAccess } from '@/lib/permissions';
+import { getTranslations } from 'next-intl/server';
 
-import { PrismaClient } from '@prisma/client'
+import { prisma } from '@/lib/prisma';
 import { revalidatePath } from 'next/cache'
 import fs from 'fs/promises'
 import path from 'path'
 
-const prisma = new PrismaClient()
 
 export async function getProducts() {
+  await verifyServerActionAccess('products');
+
   try {
     const products = await prisma.product.findMany({
-      orderBy: { createdAt: 'desc' }
+      orderBy: { createdAt: 'desc' },
+      include: {
+        supplier: {
+          select: { name: true }
+        }
+      }
     })
     return { success: true, products }
-  } catch (error) {
+  } catch (error: any) {
     console.error('Failed to fetch products:', error)
     return { success: false, error: 'Failed to fetch products' }
   }
 }
 
 export async function createProduct(formData: FormData) {
+  await verifyServerActionAccess('products');
+
   try {
     const name = formData.get('name') as string
+    const sku = (formData.get('sku') as string) || null
     const description = formData.get('description') as string
     const price = parseFloat(formData.get('price') as string) || 0
+    const purchasePrice = parseFloat(formData.get('purchasePrice') as string) || 0
     const category = formData.get('category') as string
     const stock = parseInt(formData.get('stock') as string) || 0
+    const minStock = parseInt(formData.get('minStock') as string) || 0
+    const unit = (formData.get('unit') as string) || 'pcs'
+    const supplierId = (formData.get('supplierId') as string) || null
     const imageFile = formData.get('image') as File | null
 
     let imagePath = null
@@ -45,47 +60,68 @@ export async function createProduct(formData: FormData) {
     const product = await prisma.product.create({
       data: {
         name,
+        sku,
         description,
         price,
+        purchasePrice,
         category,
         stock,
+        minStock,
+        unit,
+        supplierId,
         image: imagePath
       }
     })
 
     revalidatePath('/', 'layout');
     return { success: true, product }
-  } catch (error) {
+  } catch (error: any) {
     console.error('Failed to create product:', error)
-    return { success: false, error: 'Failed to create product' }
+    const t = await getTranslations('Errors');
+    return { success: false, error: t('saveFailed') }
   }
 }
 
 export async function deleteProduct(id: string) {
+  await verifyServerActionAccess('products');
+
   try {
     await prisma.product.delete({ where: { id } })
     revalidatePath('/', 'layout');
     return { success: true }
-  } catch (error) {
-    return { success: false, error: 'Failed to delete product' }
+  } catch (error: any) {
+    const t = await getTranslations('Errors');
+    return { success: false, error: t('deleteFailed') }
   }
 }
 
 export async function updateProduct(id: string, formData: FormData) {
+  await verifyServerActionAccess('products');
+
   try {
     const name = formData.get('name') as string
+    const sku = (formData.get('sku') as string) || null
     const description = formData.get('description') as string
     const price = parseFloat(formData.get('price') as string) || 0
+    const purchasePrice = parseFloat(formData.get('purchasePrice') as string) || 0
     const category = formData.get('category') as string
     const stock = parseInt(formData.get('stock') as string) || 0
+    const minStock = parseInt(formData.get('minStock') as string) || 0
+    const unit = (formData.get('unit') as string) || 'pcs'
+    const supplierId = (formData.get('supplierId') as string) || null
     const imageFile = formData.get('image') as File | null
 
     const dataToUpdate: any = {
       name,
+      sku,
       description,
       price,
+      purchasePrice,
       category,
-      stock
+      stock,
+      minStock,
+      unit,
+      supplierId
     }
 
     if (imageFile && imageFile.size > 0) {
@@ -106,8 +142,9 @@ export async function updateProduct(id: string, formData: FormData) {
 
     revalidatePath('/', 'layout');
     return { success: true, product }
-  } catch (error) {
+  } catch (error: any) {
     console.error('Failed to update product:', error)
-    return { success: false, error: 'Failed to update product' }
+    const t = await getTranslations('Errors');
+    return { success: false, error: t('saveFailed') }
   }
 }

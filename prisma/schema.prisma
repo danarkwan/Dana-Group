@@ -20,23 +20,36 @@ model User {
   role             String    @default("EMPLOYEE") // ADMINISTRATOR, ACCOUNTANT, CASHIER, EMPLOYEE
   resetToken       String?
   resetTokenExpiry DateTime?
+  permissions      String[]  @default([])
   createdAt        DateTime  @default(now())
   updatedAt        DateTime  @updatedAt
+  
+  transactions     Transaction[]
+  stockMovements   StockMovement[]
 }
 
 model Product {
-  id          String   @id @default(cuid())
-  name        String
-  description String?
-  image       String?
-  price       Float
-  stock       Int      @default(0)
-  category    String?
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  id            String   @id @default(cuid())
+  name          String
+  sku           String?  @unique
+  description   String?
+  image         String?
+  price         Float
+  purchasePrice Float    @default(0)
+  stock         Int      @default(0)
+  minStock      Int      @default(0)
+  unit          String   @default("pcs")
+  category      String?
+  
+  supplierId    String?
+  supplier      Supplier? @relation(fields: [supplierId], references: [id])
+  
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
 
-  invoiceItems InvoiceItem[]
+  invoiceItems  InvoiceItem[]
   purchaseItems PurchaseItem[]
+  stockMovements StockMovement[]
 }
 
 model Customer {
@@ -49,6 +62,7 @@ model Customer {
   updatedAt DateTime  @updatedAt
   
   invoices  Invoice[]
+  transactions Transaction[]
 }
 
 model Invoice {
@@ -87,11 +101,39 @@ model InvoiceItem {
 }
 
 model Transaction {
+  id               String    @id @default(cuid())
+  transactionNumber String?  @unique
+  type             String    // INCOME, EXPENSE, PAYMENT, PURCHASE, SALE, TRANSFER
+  category         String?   // e.g. "Rent", "Salary", "Utilities"
+  amount           Float
+  description      String?
+  paymentMethod    String?
+  status           String    @default("COMPLETED") // PENDING, COMPLETED, CANCELLED
+  date             DateTime  @default(now())
+  
+  customerId       String?
+  customer         Customer? @relation(fields: [customerId], references: [id])
+  supplierId       String?
+  supplier         Supplier? @relation(fields: [supplierId], references: [id])
+  userId           String?
+  user             User?     @relation(fields: [userId], references: [id])
+  payroll          Payroll?
+  
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+}
+
+model StockMovement {
   id          String   @id @default(cuid())
-  type        String   // INCOME, EXPENSE
-  amount      Float
-  description String?
+  productId   String
+  product     Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+  type        String   // IN, OUT, ADJUSTMENT
+  quantity    Int
   date        DateTime @default(now())
+  reason      String?
+  reference   String?  // Optional reference like invoice ID or purchase ID
+  userId      String?
+  user        User?    @relation(fields: [userId], references: [id])
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 }
@@ -106,6 +148,8 @@ model Supplier {
   updatedAt DateTime  @updatedAt
   
   purchases Purchase[]
+  transactions Transaction[]
+  products  Product[]
 }
 
 model Purchase {
@@ -139,4 +183,51 @@ model PurchaseItem {
   description String?
   quantity   Int
   price      Float
+}
+
+model Notification {
+  id        String   @id @default(cuid())
+  type      String   // DEBT, OVERDUE, LOW_STOCK, PAYMENT, TRANSACTION
+  title     String
+  message   String
+  isRead    Boolean  @default(false)
+  link      String?  
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Employee {
+  id           String    @id @default(cuid())
+  employeeId   String    @unique
+  fullName     String
+  phone        String?
+  jobPosition  String?
+  department   String?
+  startDate    DateTime?
+  salaryType   String    @default("MONTHLY") // MONTHLY, DAILY
+  baseSalary   Float
+  notes        String?
+  isActive     Boolean   @default(true)
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  payrolls     Payroll[]
+}
+
+model Payroll {
+  id            String    @id @default(cuid())
+  employeeId    String
+  employee      Employee  @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  amount        Float
+  date          DateTime  @default(now())
+  period        String    // e.g. "January 2026", "Week 1", etc.
+  method        String    @default("CASH") // CASH, TRANSFER, etc.
+  notes         String?
+  status        String    @default("PENDING") // PENDING, PAID
+  
+  transactionId String?   @unique
+  transaction   Transaction? @relation(fields: [transactionId], references: [id])
+  
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
 }

@@ -1,7 +1,8 @@
+import { toast } from 'sonner';
 'use client'
 
 import { useTranslations } from 'next-intl'
-import { Printer, Download, ArrowLeft } from 'lucide-react'
+import { Printer, Download, ArrowLeft, Share2 } from 'lucide-react'
 import Link from 'next/link'
 import { formatCurrencyBoth } from '@/lib/formatters'
 import styles from '../invoices.module.css'
@@ -34,6 +35,25 @@ export default function InvoiceClient({ invoice }: { invoice: any }) {
       link.click();
     } catch (error) {
       console.error('Error generating image:', error);
+    }
+  }
+
+  const handleShare = async () => {
+    try {
+      if (navigator.share) {
+        // Try to share just the text/url first
+        await navigator.share({
+          title: `وەسڵی ${invoice.invoiceNumber} - Dana Group`,
+          text: `فەرموو، ئەمە وەسڵی ژمارە ${invoice.invoiceNumber} یە بە بڕی ${formatCurrencyBoth(invoice.total)}.`,
+          url: window.location.href,
+        });
+      } else {
+        // Fallback for browsers that don't support Web Share API
+        navigator.clipboard.writeText(window.location.href);
+        toast.success('لینکی وەسڵەکە کۆپی کرا بۆ فۆنەکەت!');
+      }
+    } catch (error) {
+      console.log('Error sharing:', error);
     }
   }
 
@@ -80,10 +100,13 @@ export default function InvoiceClient({ invoice }: { invoice: any }) {
         </div>
         <div style={{ display: 'flex', gap: 'var(--spacing-sm)' }}>
           <button onClick={handlePrint} className="btn btn-primary">
-            <Printer size={20} /> چاپکردن (Print)
+            <Printer size={20} /> چاپکردن / PDF
           </button>
           <button onClick={handleDownloadImage} className="btn btn-secondary">
-            <Download size={20} /> دابەزاندن (وێنە)
+            <Download size={20} /> وێنە
+          </button>
+          <button onClick={handleShare} className="btn btn-secondary">
+            <Share2 size={20} /> ناردن
           </button>
         </div>
       </div>

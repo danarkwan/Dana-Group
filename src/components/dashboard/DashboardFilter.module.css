@@ -64,12 +64,84 @@
   cursor: pointer;
 }
 
+.periodSelect {
+  padding: 0.6rem 2.5rem 0.6rem 1rem;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  background-color: var(--color-surface);
+  color: var(--color-text);
+  font-size: 0.95rem;
+  font-weight: 500;
+  font-family: inherit;
+  outline: none;
+  cursor: pointer;
+  appearance: none;
+  transition: all 0.2s ease;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+}
+
+.periodSelect:hover {
+  border-color: var(--color-primary);
+}
+
+.periodSelect:focus {
+  border-color: var(--color-primary);
+  box-shadow: 0 0 0 3px rgba(0, 112, 243, 0.15);
+}
+
+.customDateContainer {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.dateDisplay {
+  padding: 0.6rem 1rem;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  background-color: var(--color-surface);
+  color: var(--color-text);
+  font-size: 0.95rem;
+  font-weight: 500;
+  position: relative;
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  min-width: 140px;
+}
+
+.invisibleDateInput {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  opacity: 0;
+  cursor: pointer;
+}
+
+.invisibleDateInput::-webkit-calendar-picker-indicator {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  opacity: 0;
+  cursor: pointer;
+  background: transparent;
+}
+
 /* RTL Support */
 :global([dir="rtl"]) .icon {
   right: auto;
   left: 12px;
 }
 :global([dir="rtl"]) .dateInput {
+  padding-right: 1rem;
+  padding-left: 2.5rem;
+}
+:global([dir="rtl"]) .periodSelect {
   padding-right: 1rem;
   padding-left: 2.5rem;
 }

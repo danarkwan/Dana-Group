@@ -1,14 +1,18 @@
+import { hasAccess } from '@/lib/permissions';
 import { getServerSession } from 'next-auth/next'
 import { authOptions } from '@/lib/auth'
-import { PrismaClient } from '@prisma/client'
+import { prisma } from '@/lib/prisma';
 import SettingsClient from './SettingsClient'
 import { redirect } from 'next/navigation'
 
-const prisma = new PrismaClient()
 
 export default async function SettingsPage() {
-  const session = await getServerSession(authOptions)
-  
+  const session = await getServerSession(authOptions);
+  if (!session || !hasAccess(session.user, 'settings')) {
+    redirect(`/en/auth/signin`);
+  }
+
+
   if (!session?.user?.email) {
     redirect('/en/login')
   }

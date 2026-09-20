@@ -1,15 +1,19 @@
 'use client';
-
-import { useState } from 'react';
+import { toast } from 'sonner';
+import { useState, useEffect } from 'react';
 import { Customer } from '@prisma/client';
 import { createCustomer, updateCustomer, deleteCustomer } from '@/lib/actions/customers';
 import styles from './customers.module.css';
+import { useSearchParams, useRouter, usePathname } from 'next/navigation';
 import CustomerModal from '@/components/customers/CustomerModal';
+import ConfirmDialog from '@/components/ui/ConfirmDialog';
+import { formatCurrencyBoth } from '@/lib/formatters';
 
 type CustomerWithCount = Customer & {
   _count: {
     invoices: number;
   };
+  remainingDebt: number;
 };
 
 type CustomersClientProps = {
@@ -32,9 +36,22 @@ type CustomersClientProps = {
 };
 
 export default function CustomersClient({ initialCustomers, translations }: CustomersClientProps) {
+  const searchParams = useSearchParams();
+  const router = useRouter();
+  const pathname = usePathname();
+
   const [customers, setCustomers] = useState<CustomerWithCount[]>(initialCustomers);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingCustomer, setEditingCustomer] = useState<Customer | undefined>(undefined);
+  const [confirmDialog, setConfirmDialog] = useState({ isOpen: false, message: '', onConfirm: () => {} });
+
+  useEffect(() => {
+    const action = searchParams.get('action');
+    if (action === 'add-customer') {
+      setIsModalOpen(true);
+      router.replace(pathname, { scroll: false });
+    }
+  }, [searchParams, pathname, router]);
 
   function handleOpenModal(customer?: Customer) {
     setEditingCustomer(customer);
@@ -52,33 +69,37 @@ export default function CustomersClient({ initialCustomers, translations }: Cust
       if (result.success && result.customer) {
         setCustomers(customers.map(c => 
           c.id === result.customer!.id 
-            ? { ...result.customer!, _count: c._count } 
+            ? { ...result.customer!, _count: c._count, remainingDebt: c.remainingDebt } 
             : c
         ));
         handleCloseModal();
       } else {
-        alert(result.error);
+        toast.error(result.error);
       }
     } else {
       const result = await createCustomer(formData);
       if (result.success && result.customer) {
-        setCustomers([{ ...result.customer!, _count: { invoices: 0 } }, ...customers]);
+        setCustomers([{ ...result.customer!, _count: { invoices: 0 }, remainingDebt: 0 }, ...customers]);
         handleCloseModal();
       } else {
-        alert(result.error);
+        toast.error(result.error);
       }
     }
   }
 
-  async function handleDelete(id: string) {
-    if (confirm(translations.deleteConfirm)) {
-      const result = await deleteCustomer(id);
-      if (result.success) {
-        setCustomers(customers.filter(c => c.id !== id));
-      } else {
-        alert(result.error);
+  function handleDelete(id: string) {
+    setConfirmDialog({
+      isOpen: true,
+      message: translations.deleteConfirm,
+      onConfirm: async () => {
+        const result = await deleteCustomer(id);
+        if (result.success) {
+          setCustomers(customers.filter(c => c.id !== id));
+        } else {
+          toast.error(result.error);
+        }
       }
-    }
+    });
   }
 
   return (
@@ -162,6 +183,18 @@ export default function CustomersClient({ initialCustomers, translations }: Cust
                   {customer._count.invoices}
                 </span>
               </div>
+              
+              <div className={styles.statsRow} style={{ marginTop: '0.5rem' }}>
+                <span className={styles.infoRow} style={{ marginBottom: 0 }}>
+                  قەرزی ماوە
+                </span>
+                <span className={styles.statBadge} style={{ 
+                  backgroundColor: customer.remainingDebt > 0 ? 'var(--color-danger-light)' : 'var(--color-success-light)',
+                  color: customer.remainingDebt > 0 ? 'var(--color-danger)' : 'var(--color-success)',
+                }}>
+                  {formatCurrencyBoth(customer.remainingDebt)}
+                </span>
+              </div>
             </div>
           ))}
         </div>
@@ -173,6 +206,12 @@ export default function CustomersClient({ initialCustomers, translations }: Cust
         onSave={handleSave}
         customer={editingCustomer}
         translations={translations}
+      />
+      <ConfirmDialog
+        isOpen={confirmDialog.isOpen}
+        message={confirmDialog.message}
+        onConfirm={confirmDialog.onConfirm}
+        onCancel={() => setConfirmDialog(p => ({ ...p, isOpen: false }))}
       />
     </div>
   );

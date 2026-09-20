@@ -1,12 +1,17 @@
+import { redirect } from 'next/navigation';
+import { hasAccess } from '@/lib/permissions';
+import { authOptions } from '@/lib/auth';
+import { getServerSession } from 'next-auth/next';
 import { getTranslations } from 'next-intl/server'
-import { PrismaClient } from '@prisma/client'
+import { prisma } from '@/lib/prisma';
 import Link from 'next/link'
 import { FileText, CheckCircle, Clock, AlertCircle, Plus } from 'lucide-react'
 import { formatCurrencyBoth } from '@/lib/formatters'
 import styles from './invoices.module.css'
 import InvoiceRowActions from './InvoiceRowActions'
+import Pagination from '@/components/ui/Pagination'
+import InvoicesFilter from './InvoicesFilter'
 
-const prisma = new PrismaClient()
 
 export async function generateMetadata({ params }: { params: Promise<{ locale: string }> }) {
   const { locale } = await params
@@ -14,21 +19,67 @@ export async function generateMetadata({ params }: { params: Promise<{ locale: s
   return { title: `${t('title')} | Dana Group` }
 }
 
-export default async function InvoicesPage({ params }: { params: Promise<{ locale: string }> }) {
-  const { locale } = await params
-  const invoices = await prisma.invoice.findMany({
-    include: { customer: true },
-    orderBy: { createdAt: 'desc' }
-  })
-  
-  const total = invoices.length
-  const paid = invoices.filter(i => i.status === 'PAID').length
-  const unpaid = invoices.filter(i => i.status === 'PENDING').length
-  const overdue = invoices.filter(i => i.status === 'OVERDUE' || (i.status === 'PENDING' && i.dueDate < new Date())).length
-  const partial = invoices.filter(i => i.status === 'PARTIAL').length
+export default async function InvoicesPage({ 
+  params,
+  searchParams
+}: { 
+  params: Promise<{ locale: string }>,
+  searchParams: { page?: string, query?: string, status?: string }
+}) {
+  const session = await getServerSession(authOptions);
+  const { locale } = await params;
+  if (!session || !hasAccess(session.user, 'invoices')) {
+    redirect(`/${locale}/auth/signin`);
+  }
 
-  const totalValue = invoices.reduce((sum, inv) => sum + inv.total, 0)
-  const outstandingValue = invoices.reduce((sum, inv) => sum + inv.remainingBalance, 0)
+  const page = Number(searchParams.page) || 1;
+  const take = 20;
+  const skip = (page - 1) * take;
+
+  const where: any = {};
+  if (searchParams.query) {
+    where.OR = [
+      { invoiceNumber: { contains: searchParams.query, mode: 'insensitive' } },
+      { customerName: { contains: searchParams.query, mode: 'insensitive' } },
+      { customer: { name: { contains: searchParams.query, mode: 'insensitive' } } }
+    ];
+  }
+  if (searchParams.status && searchParams.status !== 'ALL') {
+    where.status = searchParams.status;
+  }
+
+  const [invoices, totalCount, statusCounts, sumResult] = await Promise.all([
+    prisma.invoice.findMany({
+      where,
+      include: { customer: true },
+      orderBy: { createdAt: 'desc' },
+      skip,
+      take
+    }),
+    prisma.invoice.count({ where }),
+    prisma.invoice.groupBy({
+      by: ['status'],
+      where,
+      _count: true
+    }),
+    prisma.invoice.aggregate({
+      where,
+      _sum: { total: true, remainingBalance: true }
+    })
+  ]);
+
+  const totalPages = Math.ceil(totalCount / take);
+  
+  let paid = 0, unpaid = 0, overdue = 0, partial = 0;
+  statusCounts.forEach(s => {
+    if (s.status === 'PAID') paid = s._count;
+    if (s.status === 'PENDING') unpaid = s._count;
+    if (s.status === 'OVERDUE') overdue = s._count;
+    if (s.status === 'PARTIAL') partial = s._count;
+  });
+
+  const totalValue = sumResult._sum.total || 0;
+  const outstandingValue = sumResult._sum.remainingBalance || 0;
 
   return (
     <div className={styles.container}>
@@ -49,7 +100,7 @@ export default async function InvoicesPage({ params }: { params: Promise<{ local
       <div className={styles.statsGrid}>
         <SummaryCard 
           title="Invoices.total" 
-          value={total} 
+          value={totalCount} 
           subtitle={formatCurrencyBoth(totalValue)}
           icon={<FileText size={24} color="var(--color-primary)" />} 
         />
@@ -72,6 +123,9 @@ export default async function InvoicesPage({ params }: { params: Promise<{ local
           icon={<AlertCircle size={24} color="var(--color-danger)" />} 
         />
       </div>
+
+      {/* Filters */}
+      <InvoicesFilter />
 
       {/* Invoices Table */}
       <div className={`card ${styles.tableContainer}`}>
@@ -123,6 +177,8 @@ export default async function InvoicesPage({ params }: { params: Promise<{ local
           </tbody>
         </table>
       </div>
+
+      <Pagination totalPages={totalPages} />
     </div>
   )
 }

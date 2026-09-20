@@ -1,11 +1,14 @@
-'use server'
+'use server';
+import { verifyServerActionAccess } from '@/lib/permissions';
+import { getTranslations } from 'next-intl/server';
 
-import { PrismaClient } from '@prisma/client'
+import { prisma } from '@/lib/prisma';
 import { revalidatePath } from 'next/cache'
 
-const prisma = new PrismaClient()
 
 export async function createInvoice(data: any) {
+  await verifyServerActionAccess('invoices');
+
   try {
     // Basic validation & formatting
     const invoice = await prisma.invoice.create({
@@ -41,25 +44,76 @@ export async function createInvoice(data: any) {
         data: {
           type: 'INCOME',
           amount: data.paidAmount,
-          description: `Payment for Invoice ${invoice.invoiceNumber}`
+          description: `Payment for Invoice ${invoice.invoiceNumber}`,
+          customerId: data.customerId || null
         }
       })
+    }
+
+    // Automatically update inventory
+    for (const item of data.items) {
+      if (item.productId && item.quantity > 0) {
+        await prisma.product.update({
+          where: { id: item.productId },
+          data: {
+            stock: { decrement: item.quantity }
+          }
+        });
+
+        await prisma.stockMovement.create({
+          data: {
+            productId: item.productId,
+            type: 'OUT',
+            quantity: item.quantity,
+            reason: `Sale Invoice ${invoice.invoiceNumber}`,
+            reference: invoice.id
+          }
+        });
+      }
     }
 
     revalidatePath('/', 'layout');
     revalidatePath('/', 'layout');
     
     return { success: true, invoice }
-  } catch (error) {
+  } catch (error: any) {
     console.error('Failed to create invoice:', error)
     return { success: false, error: 'Failed to create invoice' }
   }
 }
 
 export async function deleteInvoice(id: string) {
+  await verifyServerActionAccess('invoices');
+
   try {
-    const invoice = await prisma.invoice.findUnique({ where: { id } });
-    if (!invoice) return { success: false, error: 'Invoice not found' };
+    const invoice = await prisma.invoice.findUnique({ 
+      where: { id },
+      include: { items: true }
+    });
+    if (!invoice) {
+      const t = await getTranslations('Errors');
+      return { success: false, error: t('saveFailed') };
+    }
+
+    // Revert inventory
+    for (const item of invoice.items) {
+      if (item.productId && item.quantity > 0) {
+        await prisma.product.update({
+          where: { id: item.productId },
+          data: { stock: { increment: item.quantity } }
+        });
+
+        await prisma.stockMovement.create({
+          data: {
+            productId: item.productId,
+            type: 'IN',
+            quantity: item.quantity,
+            reason: `Reverted Sale Invoice ${invoice.invoiceNumber}`,
+            reference: invoice.id
+          }
+        });
+      }
+    }
 
     await prisma.$transaction([
       prisma.transaction.deleteMany({
@@ -76,15 +130,21 @@ export async function deleteInvoice(id: string) {
     revalidatePath('/', 'layout');
     revalidatePath('/', 'layout');
     return { success: true };
-  } catch (error) {
-    return { success: false, error: 'Failed to delete invoice' };
+  } catch (error: any) {
+    const t = await getTranslations('Errors');
+    return { success: false, error: t('deleteFailed') };
   }
 }
 
 export async function recordPayment(invoiceId: string, amount: number) {
+  await verifyServerActionAccess('invoices');
+
   try {
     const invoice = await prisma.invoice.findUnique({ where: { id: invoiceId } })
-    if (!invoice) throw new Error("Invoice not found")
+    if (!invoice) {
+      const t = await getTranslations('Errors');
+      throw new Error(t('notFound'))
+    }
       
     const newPaidAmount = invoice.paidAmount + amount
     const newRemainingBalance = invoice.total - newPaidAmount
@@ -106,7 +166,8 @@ export async function recordPayment(invoiceId: string, amount: number) {
         data: {
           type: 'INCOME',
           amount: amount,
-          description: `Payment for Invoice ${invoice.invoiceNumber}`
+          description: `Payment for Invoice ${invoice.invoiceNumber}`,
+          customerId: invoice.customerId
         }
       })
     ])
@@ -115,7 +176,7 @@ export async function recordPayment(invoiceId: string, amount: number) {
     revalidatePath('/', 'layout');
     
     return { success: true }
-  } catch (error) {
+  } catch (error: any) {
     return { success: false, error: 'Failed to record payment' }
   }
 }

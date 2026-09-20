@@ -1,12 +1,14 @@
-'use server'
+'use server';
+import { verifyServerActionAccess } from '@/lib/permissions';
 
-import { PrismaClient } from '@prisma/client'
+import { prisma } from '@/lib/prisma';
 import { revalidatePath } from 'next/cache'
 import bcrypt from 'bcryptjs'
 
-const prisma = new PrismaClient()
 
 export async function updateProfile(id: string, formData: FormData) {
+  await verifyServerActionAccess('settings');
+
   try {
     const name = formData.get('name') as string
     const email = formData.get('email') as string

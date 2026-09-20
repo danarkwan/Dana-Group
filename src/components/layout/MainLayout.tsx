@@ -4,9 +4,11 @@ import React, { useState } from 'react';
 import { useTranslations } from 'next-intl';
 import { useParams, usePathname } from 'next/navigation';
 import Link from 'next/link';
-import { LayoutDashboard, Receipt, Package, Users, Truck, ShoppingCart, ArrowRightLeft, Settings, Menu, LogOut, X, Moon, Sun, User } from 'lucide-react';
-import { signOut } from 'next-auth/react';
+import { LayoutDashboard, Receipt, Package, Users, Truck, ShoppingCart, ArrowRightLeft, Settings, Menu, LogOut, X, Moon, Sun, User, BarChart, CircleDollarSign, Wallet } from 'lucide-react';
+import { signOut, useSession } from 'next-auth/react';
+import { hasAccess, AppSection } from '@/lib/permissions';
 import Logo from '@/components/ui/Logo';
+import NotificationBell from './NotificationBell';
 import styles from './MainLayout.module.css';
 
 export default function MainLayout({ children }: { children: React.ReactNode }) {
@@ -23,16 +25,25 @@ export default function MainLayout({ children }: { children: React.ReactNode }) 
     document.documentElement.setAttribute('data-theme', newTheme);
   };
 
+  const { data: session } = useSession();
+
   const navItems = [
-    { icon: LayoutDashboard, label: t('dashboard'), href: '/' },
-    { icon: Receipt, label: t('invoices'), href: '/invoices' },
-    { icon: Package, label: t('products'), href: '/products' },
-    { icon: Users, label: t('customers'), href: '/customers' },
-    { icon: Truck, label: t('suppliers'), href: '/suppliers' },
-    { icon: ShoppingCart, label: t('purchases'), href: '/purchases' },
-    { icon: ArrowRightLeft, label: t('transactions'), href: '/transactions' },
-    { icon: Settings, label: t('settings'), href: '/settings' },
+    { icon: LayoutDashboard, label: t('dashboard'), href: '/', section: 'dashboard' as AppSection },
+    { icon: CircleDollarSign, label: t('transactions'), href: '/transactions', section: 'transactions' as AppSection },
+    { icon: Wallet, label: 'پارەدانەکان', href: '/payments', section: 'payments' as AppSection },
+    { icon: Package, label: t('products'), href: '/products', section: 'products' as AppSection },
+    { icon: Users, label: t('customers'), href: '/customers', section: 'customers' as AppSection },
+    { icon: Truck, label: t('suppliers'), href: '/suppliers', section: 'suppliers' as AppSection },
+    { icon: ShoppingCart, label: t('purchases'), href: '/purchases', section: 'inventory' as AppSection },
+    { icon: ArrowRightLeft, label: t('invoices'), href: '/invoices', section: 'invoices' as AppSection }, 
+    { icon: Users, label: 'کارمەندان', href: '/employees', section: 'employees' as AppSection }, // Used Users icon, you could use Briefcase
+    { icon: CircleDollarSign, label: 'مووچەکان', href: '/payroll', section: 'payroll' as AppSection }, // Payroll
+    { icon: BarChart, label: 'ڕاپۆرتەکان', href: '/reports', section: 'reports' as AppSection }, 
+    { icon: Settings, label: t('settings'), href: '/settings', section: 'settings' as AppSection },
   ];
+
+  const visibleNavItems = navItems.filter(item => hasAccess(session?.user, item.section));
+
 
   return (
     <div className={styles.layout}>
@@ -50,13 +61,13 @@ export default function MainLayout({ children }: { children: React.ReactNode }) 
             </div>
             <span className={styles.logoText}>Dana Group</span>
           </div>
-          <button className={styles.closeBtn} onClick={() => setSidebarOpen(false)}>
+          <button className={styles.closeBtn} onClick={() => setSidebarOpen(false)} aria-label="Close menu" title="Close menu">
             <X size={24} />
           </button>
         </div>
 
         <nav className={styles.nav}>
-          {navItems.map((item, idx) => {
+          {visibleNavItems.map((item, idx) => {
             const path = item.href === '/' ? `/${locale}` : `/${locale}${item.href}`;
             const isActive = item.href === '/' 
               ? pathname === path 
@@ -89,15 +100,16 @@ export default function MainLayout({ children }: { children: React.ReactNode }) 
         {/* Header */}
         <header className={styles.header}>
           <div className={styles.headerLeft}>
-            <button className={styles.menuBtn} onClick={() => setSidebarOpen(true)}>
+            <button className={styles.menuBtn} onClick={() => setSidebarOpen(true)} aria-label="Open menu" title="Open menu">
               <Menu size={24} />
             </button>
           </div>
           <div className={styles.headerRight}>
-            <button className={styles.themeBtn} onClick={toggleTheme}>
+            <button className={styles.themeBtn} onClick={toggleTheme} aria-label="Toggle theme" title="Toggle theme">
               {theme === 'light' ? <Moon size={20} /> : <Sun size={20} />}
             </button>
-            <Link href={`/${locale}/settings`} className={styles.avatar}>
+            <NotificationBell />
+            <Link href={`/${locale}/settings`} className={styles.avatar} aria-label="User settings" title="User settings">
               <User size={20} />
             </Link>
           </div>

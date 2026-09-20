@@ -3,8 +3,10 @@ import { getProducts } from '@/lib/actions/products';
 import CreateInvoiceClient from './CreateInvoiceClient';
 
 export default async function CreateInvoicePage() {
-  const customers = await getCustomers();
+  const customersResponse = await getCustomers();
   const productsResponse = await getProducts();
+  
+  const customers = customersResponse.customers || [];
   const products = productsResponse.success ? productsResponse.products : [];
   
   return <CreateInvoiceClient initialCustomers={customers} initialProducts={products} />;

@@ -12,7 +12,7 @@
   border-right: 1px solid var(--color-border);
   display: flex;
   flex-direction: column;
-  transition: transform 0.3s ease;
+  transition: transform 0.4s cubic-bezier(0.4, 0, 0.2, 1);
   z-index: 50;
 }
 
@@ -76,8 +76,8 @@
 }
 
 .active {
-  background-color: var(--color-primary-light);
-  color: var(--color-primary);
+  background-color: var(--color-primary-light, #e0f2fe);
+  color: var(--color-primary, #3b82f6);
   font-weight: 600;
 }
 
@@ -97,8 +97,9 @@
 }
 
 .sidebarFooter {
-  padding: var(--spacing-md);
+  padding: var(--spacing-xl) var(--spacing-md) var(--spacing-md) var(--spacing-md);
   border-top: 1px solid var(--color-border);
+  margin-top: auto;
 }
 
 .logoutBtn {
@@ -220,20 +221,22 @@
     position: fixed;
     top: 0;
     bottom: 0;
-    left: -260px;
+    left: -85vw;
+    width: 85vw;
+    max-width: 320px;
   }
   
   .sidebarOpen {
-    transform: translateX(260px);
+    transform: translateX(85vw);
   }
   
   [dir='rtl'] .sidebar {
     left: auto;
-    right: -260px;
+    right: -85vw;
   }
   
   [dir='rtl'] .sidebarOpen {
-    transform: translateX(-260px);
+    transform: translateX(-85vw);
   }
 
   .menuBtn, .closeBtn, .overlay {

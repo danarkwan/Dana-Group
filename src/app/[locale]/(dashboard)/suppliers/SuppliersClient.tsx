@@ -1,10 +1,13 @@
 'use client';
-
-import { useState } from 'react';
+import { toast } from 'sonner';
+import { useState, useEffect } from 'react';
 import { Supplier } from '@prisma/client';
 import { createSupplier, updateSupplier, deleteSupplier } from '@/lib/actions/suppliers';
 import styles from '../customers/customers.module.css'; // Reusing customer styles
+import { useSearchParams, useRouter, usePathname } from 'next/navigation';
+import Link from 'next/link';
 import SupplierModal from '@/components/suppliers/SupplierModal';
+import ConfirmDialog from '@/components/ui/ConfirmDialog';
 
 type SupplierWithCount = Supplier & {
   _count: {
@@ -32,9 +35,22 @@ type SuppliersClientProps = {
 };
 
 export default function SuppliersClient({ initialSuppliers, translations }: SuppliersClientProps) {
+  const searchParams = useSearchParams()
+  const router = useRouter()
+  const pathname = usePathname()
+  
   const [suppliers, setSuppliers] = useState<SupplierWithCount[]>(initialSuppliers);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingSupplier, setEditingSupplier] = useState<Supplier | undefined>(undefined);
+  const [confirmDialog, setConfirmDialog] = useState({ isOpen: false, message: '', onConfirm: () => {} });
+
+  useEffect(() => {
+    const action = searchParams.get('action')
+    if (action === 'add-supplier') {
+      setIsModalOpen(true)
+      router.replace(pathname, { scroll: false })
+    }
+  }, [searchParams, pathname, router])
 
   function handleOpenModal(supplier?: Supplier) {
     setEditingSupplier(supplier);
@@ -57,7 +73,7 @@ export default function SuppliersClient({ initialSuppliers, translations }: Supp
         ));
         handleCloseModal();
       } else {
-        alert(result.error);
+        toast.error(result.error);
       }
     } else {
       const result = await createSupplier(formData);
@@ -65,20 +81,24 @@ export default function SuppliersClient({ initialSuppliers, translations }: Supp
         setSuppliers([{ ...result.supplier!, _count: { purchases: 0 } }, ...suppliers]);
         handleCloseModal();
       } else {
-        alert(result.error);
+        toast.error(result.error);
       }
     }
   }
 
-  async function handleDelete(id: string) {
-    if (confirm(translations.deleteConfirm)) {
-      const result = await deleteSupplier(id);
-      if (result.success) {
-        setSuppliers(suppliers.filter(s => s.id !== id));
-      } else {
-        alert(result.error);
+  function handleDelete(id: string) {
+    setConfirmDialog({
+      isOpen: true,
+      message: translations.deleteConfirm,
+      onConfirm: async () => {
+        const result = await deleteSupplier(id);
+        if (result.success) {
+          setSuppliers(suppliers.filter(s => s.id !== id));
+        } else {
+          toast.error(result.error);
+        }
       }
-    }
+    });
   }
 
   return (
@@ -106,8 +126,17 @@ export default function SuppliersClient({ initialSuppliers, translations }: Supp
           {suppliers.map((supplier) => (
             <div key={supplier.id} className={`${styles.card} card animate-fade-in`}>
               <div className={styles.cardHeader}>
-                <h3 className={styles.cardTitle}>{supplier.name}</h3>
+                <Link href={`/${pathname.split('/')[1]}/suppliers/${supplier.id}`} style={{textDecoration: 'none', color: 'inherit'}}>
+                  <h3 className={styles.cardTitle}>{supplier.name}</h3>
+                </Link>
                 <div className={styles.actions}>
+                  <Link 
+                    href={`/${pathname.split('/')[1]}/suppliers/${supplier.id}`}
+                    className="btn btn-primary"
+                    style={{ padding: '0.25rem 0.5rem', fontSize: '0.75rem' }}
+                  >
+                    Profile
+                  </Link>
                   <button 
                     className="btn btn-secondary"
                     style={{ padding: '0.25rem 0.5rem', fontSize: '0.75rem' }}
@@ -173,6 +202,12 @@ export default function SuppliersClient({ initialSuppliers, translations }: Supp
         onSave={handleSave}
         supplier={editingSupplier}
         translations={translations}
+      />
+      <ConfirmDialog
+        isOpen={confirmDialog.isOpen}
+        message={confirmDialog.message}
+        onConfirm={confirmDialog.onConfirm}
+        onCancel={() => setConfirmDialog(p => ({ ...p, isOpen: false }))}
       />
     </div>
   );

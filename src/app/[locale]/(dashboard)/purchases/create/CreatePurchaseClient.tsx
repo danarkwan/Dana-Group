@@ -278,6 +278,8 @@ export default function CreatePurchaseClient({
                     type="button" 
                     onClick={() => handleRemoveItem(index)}
                     className={styles.iconBtn}
+                    title={t('remove') || 'Remove item'}
+                    aria-label={t('remove') || 'Remove item'}
                   >
                     <Trash2 size={20} />
                   </button>

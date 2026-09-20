@@ -1,8 +1,7 @@
-import { PrismaClient } from '@prisma/client'
+import { prisma } from '@/lib/prisma';
 import { notFound } from 'next/navigation'
 import PurchaseClient from './PurchaseClient'
 
-const prisma = new PrismaClient()
 
 export default async function PurchasePage({ params }: { params: Promise<{ locale: string, id: string }> }) {
   const { id } = await params
