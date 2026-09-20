@@ -39,5 +39,14 @@
     "prisma": "^5.10.0",
     "ts-node": "^10.9.2",
     "typescript": "^5"
+  },
+  "allowScripts": {
+    "@parcel/watcher": true,
+    "@prisma/client": true,
+    "@prisma/engines": true,
+    "@swc/core": true,
+    "core-js": true,
+    "prisma": true,
+    "unis-resolver": true
   }
 }
