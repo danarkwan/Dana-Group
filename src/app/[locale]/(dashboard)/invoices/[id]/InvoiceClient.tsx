@@ -1,5 +1,5 @@
-import { toast } from 'sonner';
 'use client'
+import { toast } from 'sonner';
 
 import { useTranslations } from 'next-intl'
 import { Printer, Download, ArrowLeft, Share2 } from 'lucide-react'
