@@ -40,6 +40,14 @@ export async function createEmployee(data: {
 }) {
   await verifyServerActionAccess('employees')
   
+  const existingEmployee = await prisma.employee.findUnique({
+    where: { employeeId: data.employeeId }
+  })
+  
+  if (existingEmployee) {
+    throw new Error('ئەم ئایدییە (ID) پێشتر بەکارهاتووە بۆ کارمەندێکی تر. تکایە ژمارەیەکی جیاواز بنووسە.')
+  }
+  
   const result = await prisma.employee.create({
     data
   })
@@ -61,6 +69,16 @@ export async function updateEmployee(id: string, data: {
   isActive?: boolean
 }) {
   await verifyServerActionAccess('employees')
+  
+  if (data.employeeId) {
+    const existingEmployee = await prisma.employee.findUnique({
+      where: { employeeId: data.employeeId }
+    })
+    
+    if (existingEmployee && existingEmployee.id !== id) {
+      throw new Error('ئەم ئایدییە (ID) پێشتر لەلایەن کارمەندێکی ترەوە بەکارهاتووە.')
+    }
+  }
   
   const result = await prisma.employee.update({
     where: { id },
